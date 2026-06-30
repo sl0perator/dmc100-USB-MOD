@@ -1,0 +1,146 @@
+# DMC-100 Firmware V1.4 — Function Rename Map
+# Format: FUN_xxxxxxxx  new_name
+# Only high-confidence renames included.
+
+# ── RTOS / Heap ──────────────────────────────────────────────────────────────
+FUN_0800025e  rtos_malloc
+FUN_080002bc  rtos_free
+FUN_08000740  rtos_heap_get_ptr
+FUN_08000750  rtos_heap_expand
+FUN_08000778  rtos_heap_merge_free
+FUN_080007d6  rtos_heap_coalesce
+FUN_08000810  rtos_msg_alloc
+FUN_0800083c  rtos_msg_enqueue
+FUN_0800087a  rtos_queue_process
+FUN_080008a0  rtos_task_is_blocked
+FUN_080008a8  rtos_systick_handler
+FUN_080008cc  rtos_scheduler_init
+FUN_08000900  rtos_task_wake
+FUN_0800091c  rtos_heap_oom_handler
+
+# ── System / Clock / Delay ───────────────────────────────────────────────────
+FUN_0800096c  sys_print_string
+FUN_08001edc  sys_uart_putchar_stub
+FUN_08002ce8  sys_clock_init
+FUN_08002cdc  sys_delay_cycles
+FUN_08002d18  sys_delay_ms
+FUN_0800daf4  sys_sprintf
+FUN_0800dae2  sys_strlen
+FUN_0800dac4  sys_hex_digit_count
+FUN_0800dad4  sys_pow_int
+FUN_0800db08  sys_get_decimal_digit
+FUN_0800db28  sys_decimal_digit_count
+
+# ── GPIO ─────────────────────────────────────────────────────────────────────
+FUN_08002ba4  gpio_write
+FUN_08001fe0  gpio_configure_pin
+
+# ── FAT32 / Filesystem ───────────────────────────────────────────────────────
+FUN_08002450  fs_fat32_mount_notify
+FUN_08002468  fs_fat32_init
+FUN_08002534  fs_fat32_time_update
+FUN_08002560  fs_fat32_validate_bpb
+FUN_08002f70  fs_fat32_seek_cluster
+FUN_08002ff2  fs_fat32_check_media_attr
+FUN_08003004  fs_fat32_get_sector_info
+FUN_08003048  fs_fat32_read_block
+FUN_08003088  fs_fat32_is_writable
+FUN_0800309c  fs_fat32_write_block
+FUN_08007c70  fs_file_open
+FUN_080079f8  fs_file_close
+FUN_0800806c  fs_open_jpeg_file
+FUN_0800d5a8  fs_find_open_handle
+FUN_0800d5dc  fs_fat32_reset_dir_state
+
+# ── Display — Primitives ──────────────────────────────────────────────────────
+FUN_08000afa  display_set_address_window
+FUN_08000dba  display_draw_pixel
+FUN_08000dd0  display_record_graph_pixel
+FUN_08000b34  display_draw_line
+FUN_08000bd0  display_draw_line_aa
+FUN_08000c6c  display_draw_arc
+FUN_08000d20  display_draw_arc_solid
+FUN_08000e44  display_draw_rect_outline
+FUN_08000e88  display_draw_rounded_rect
+FUN_08000f24  display_fill_rect
+FUN_08000f98  display_fill_rect_masked
+FUN_08000fc8  display_draw_rounded_filled_rect
+FUN_080095b4  display_draw_hline
+FUN_08000a46  display_draw_circle
+FUN_08001ab8  display_write_data16
+FUN_08001aec  display_write_data8
+FUN_08001b1c  display_write_cmd
+FUN_08001b60  display_write_byte_spi
+FUN_08000420  display_debug_printf
+FUN_080087c8  display_send_pixel_burst
+FUN_080087fc  measure_format_value
+
+# ── Display — Text / Font ────────────────────────────────────────────────────
+FUN_080012f2  display_draw_text
+FUN_0800139e  display_draw_text_rtl
+FUN_080013fc  display_draw_char_8px
+FUN_08001508  display_draw_char_12px
+FUN_080015e0  display_draw_char_12px_b
+FUN_080016d8  display_draw_char_16px
+FUN_080017cc  display_draw_char_24px
+FUN_08001988  display_draw_char_32px
+
+# ── JPEG ─────────────────────────────────────────────────────────────────────
+FUN_08008f9c  jpeg_parse_header
+FUN_08008ea8  jpeg_decode_render
+FUN_08009274  ui_load_and_draw_jpeg
+
+# ── UI — Main Measurement Screen ─────────────────────────────────────────────
+FUN_08003124  ui_draw_hold_icon
+FUN_080030dc  ui_draw_hold_reading
+FUN_080031bc  ui_draw_range_nav_arrows
+FUN_08003500  ui_draw_scale_boxes
+FUN_080035e0  ui_draw_mode_icon
+FUN_08003758  ui_draw_measurement_unit
+FUN_08003be0  ui_draw_battery_icon
+FUN_08004eb0  ui_draw_unit_text_large
+FUN_08004fcc  ui_draw_unit_text_small
+FUN_080050f4  ui_draw_unit_label
+FUN_0800525c  ui_draw_led_icon
+FUN_080052f8  ui_update_ncv_status
+FUN_0800627c  ui_update_ncv_level_animated
+
+# ── UI — Menus / Settings ─────────────────────────────────────────────────────
+FUN_08005410  ui_show_low_battery_warning
+FUN_080057b0  ui_draw_auto_shutdown_menu
+FUN_08005938  ui_draw_language_menu
+FUN_08005a6c  ui_draw_brightness_menu
+FUN_08005c34  ui_handle_settings_nav
+FUN_080061d8  ui_draw_menu_background
+FUN_0800710c  ui_language_select_screen
+FUN_0800721c  ui_language_input_handler
+FUN_08007236  ui_language_confirm_screen
+FUN_080072e0  ui_draw_settings_tab_dots
+FUN_08007318  ui_draw_settings_page
+
+# ── UI — Misc ─────────────────────────────────────────────────────────────────
+FUN_08003d14  ui_draw_reset_return_button
+FUN_08003f24  ui_draw_about_screen
+FUN_08008100  display_state_reset
+FUN_08008138  sys_handle_reset_menu
+FUN_0800aad4  ui_draw_main_menu
+FUN_0800af08  ui_draw_charging_level_bars
+
+# ── System — Sensor / Touch ───────────────────────────────────────────────────
+FUN_0800b868  sensor_touch_query
+FUN_0800ba74  sensor_touch_send_cmd
+FUN_0800b4c0  sensor_touch_poll_init
+
+# ── System — Power / Settings ────────────────────────────────────────────────
+FUN_0800b164  sys_usb_detect_init
+FUN_0800b178  sys_is_usb_charging
+FUN_0800b1b8  ui_show_charging_screen
+FUN_0800b440  sys_auto_shutdown_tick
+FUN_0800baa0  sys_power_off
+FUN_0800d4cc  sys_settings_struct_copy
+FUN_0800d56c  sys_settings_load
+FUN_0800d5fc  sys_record_history_sample
+FUN_0800d678  sys_write_settings_to_flash
+FUN_0800209c  sys_handle_rotary_input
+FUN_0800400c  sys_handle_mode_switch
+FUN_080055e8  sys_main_measurement_loop
