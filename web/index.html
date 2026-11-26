@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DMC-100 USB</title>
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --text: #1c1f24; --muted: #6b7280; --line: #e3e5e9;
+  --accent: #2563eb; --accent-2: #dbeafe; --good: #15803d; --warn: #b45309; --bad: #b91c1c;
+  --plot: #2563eb; --grid: #e5e7eb; --plot-v: #dc2626; --plot-a: #059669; --plot-w: #2563eb; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317; --panel: #1a1d23; --text: #e6e8eb; --muted: #9097a1; --line: #2a2e36;
+    --accent: #60a5fa; --accent-2: #1e3a5f; --good: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    --plot: #60a5fa; --grid: #2a2e36; --plot-v: #f87171; --plot-a: #34d399; --plot-w: #60a5fa;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+#conn-state { font-size: 13px; color: var(--muted); }
+#conn-state.on { color: var(--good); }
+.spacer { flex: 1; }
+main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 12px; padding: 12px; max-width: 1400px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+button, select, input[type=text] { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.on { background: var(--accent-2); border-color: var(--accent); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#unsupported { display: none; background: var(--bad); color: #fff; padding: 10px 16px; }
+/* readout */
+#readout { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+#disp { font: 600 64px/1 var(--mono); letter-spacing: .02em; min-width: 4ch; }
+#unit { font-size: 32px; font-weight: 500; }
+#readout-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.badge.hold { background: var(--warn); color: #fff; border-color: var(--warn); }
+.badge.mode { color: var(--text); font-weight: 600; }
+#si { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+/* chart */
+#chart-wrap { position: relative; height: 300px; }
+#chart-wrap.power { height: 480px; }
+#chart { width: 100%; height: 100%; display: block; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.stat { background: var(--bg); border-radius: 7px; padding: 6px 8px; }
+.stat b { display: block; font: 600 15px var(--mono); }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+/* controls */
+.keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.key { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border-radius: 8px; padding: 6px; }
+.key .name { font-weight: 600; font-size: 12px; text-align: center; }
+.key .btns { display: flex; gap: 4px; }
+.key .btns button { flex: 1; padding: 4px 0; font-size: 12px; }
+dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 13px; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--mono); }
+#console { height: 220px; overflow: auto; font: 12px/1.35 var(--mono); background: var(--bg); border-radius: 7px; padding: 6px 8px; white-space: pre; }
+#console .tx { color: var(--accent); }
+#console .err { color: var(--bad); }
+#console .sys { color: var(--muted); }
+small.note { color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<style>
+#power { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+#power[hidden] { display: none; }
+.ptile { border: 1px solid var(--line, #8884); border-radius: 8px; padding: 8px 10px; }
+.ptile span { display: block; font-size: 12px; opacity: .7; }
+.ptile i { font-style: normal; font-weight: 600; }
+.ptile b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.ptile.main b { color: var(--accent, #2a7ae2); }
+</style>
+<div id="unsupported">WebSerial is not available in this browser. Use Chrome, Edge or another Chromium browser (desktop). Firefox and Safari do not support it.</div>
+<header>
+  <h1>DMC-100 USB</h1>
+  <button id="btn-connect" class="primary">Connect</button>
+  <span id="conn-state">disconnected</span>
+  <span class="spacer"></span>
+  <label class="row"><input type="checkbox" id="chk-awake" checked> keep awake</label>
+  <label class="row"><input type="checkbox" id="chk-stream" checked> stream</label>
+  <label class="row" title="Meter beeper (saved on the meter at power-off)"><input type="checkbox" id="chk-beep" data-needs-port> beep</label>
+</header>
+
+<main>
+  <div class="col">
+    <section class="panel">
+      <h2>Reading</h2>
+      <div id="readout"><span id="disp">-----</span><span id="unit"></span></div>
+      <div id="readout-meta">
+        <span class="badge mode" id="b-mode">no data</span>
+        <span class="badge hold" id="b-hold" hidden>HOLD</span>
+        <span class="badge" id="b-acdc" hidden></span>
+        <span id="si"></span>
+      </div>
+      <div id="power" hidden>
+        <div class="ptile"><span>Voltage <i id="p-vac"></i></span><b id="p-v">–</b></div>
+        <div class="ptile"><span>Current <i id="p-aac"></i></span><b id="p-a">–</b></div>
+        <div class="ptile main"><span>Power</span><b id="p-w">–</b></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="row" style="justify-content: space-between">
+        <h2 style="margin:0">Chart</h2>
+        <div class="row">
+          <select id="sel-window">
+            <option value="10">10 s</option>
+            <option value="60" selected>1 min</option>
+            <option value="600">10 min</option>
+            <option value="0">all</option>
+          </select>
+          <button id="btn-pause">Pause</button>
+          <button id="btn-clear-chart">Clear</button>
+        </div>
+      </div>
+      <div id="chart-wrap"><canvas id="chart"></canvas></div>
+      <div class="stats">
+        <div class="stat"><span>min</span><b id="st-min">–</b></div>
+        <div class="stat"><span>max</span><b id="st-max">–</b></div>
+        <div class="stat"><span>avg</span><b id="st-avg">–</b></div>
+        <div class="stat"><span>count</span><b id="st-n">0</b></div>
+      </div>
+      <div class="row" style="margin-top:8px"><button id="btn-reset-stats">Reset stats</button>
+        <small class="note">Values are normalised to SI units (V, A, Ω, F, Hz) so autoranging does not make the plot jump. Readings in different functions are not comparable: stats reset when the function changes.</small></div>
+    </section>
+
+    <section class="panel">
+      <h2>Recording</h2>
+      <div class="row">
+        <button id="btn-rec">Start recording</button>
+        <button id="btn-file" title="Stream every sample straight into a CSV file (File System Access API)">Record to file…</button>
+        <button id="btn-csv">Export CSV</button>
+        <button id="btn-json">Export JSON</button>
+        <button id="btn-rec-clear">Discard</button>
+        <span id="rec-info" class="note">0 samples</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="panel">
+      <h2>Buttons</h2>
+      <div class="keys" id="keys"></div>
+      <div class="row" style="margin-top:10px">
+        <label>Function
+          <select id="sel-mode"></select>
+        </label>
+        <button id="btn-mode">Set</button>
+        <button id="btn-power" data-needs-port title="Power view: voltage, current and power at once (same as a long V/A press)">Power mode on/off</button>
+      </div>
+      <small class="note">Short/long presses are injected as if the button was pressed on the meter. Function changes only work on the measurement screen.</small>
+    </section>
+
+    <section class="panel">
+      <h2>Status</h2>
+      <dl class="kv" id="status"></dl>
+    </section>
+
+    <section class="panel">
+      <h2>Console</h2>
+      <div id="console"></div>
+      <form class="row" id="cmd-form" style="margin-top:8px">
+        <input type="text" id="cmd" placeholder="command, e.g. S, I, K1, M0" style="flex:1" autocomplete="off">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ===================== pure protocol helpers (tested with node) ===================== */
+
+const MODES = ["DC V", "AC V", "Resistance", "Continuity", "Diode", "Capacitance",
+  "Frequency", "Temperature", "Live/Neutral", "NCV", "DC A", "AC A"];
+
+/* unit code -> [label, SI base unit, factor to SI] */
+const UNITS = {
+  1: ["", "", 1], 2: ["mV", "V", 1e-3], 3: ["V", "V", 1], 4: ["µA", "A", 1e-6],
+  5: ["mA", "A", 1e-3], 6: ["A", "A", 1], 7: ["Ω", "Ω", 1], 8: ["kΩ", "Ω", 1e3],
+  9: ["MΩ", "Ω", 1e6], 10: ["nF", "F", 1e-9], 11: ["µF", "F", 1e-6], 12: ["mF", "F", 1e-3],
+  13: ["Hz", "Hz", 1], 14: ["kHz", "Hz", 1e3], 15: ["MHz", "Hz", 1e6], 16: ["°C", "°C", 1],
+};
+
+const KEYS = [
+  ["HOLD", 1, 2], ["MODE", 5, 6], ["V/A", 9, 10],
+  ["SAVE", 13, 14], ["LIGHT", 21, 22], ["POWER", 17, 18],
+];
+
+function hexToFloat(h) {
+  if (!/^[0-9a-fA-F]{8}$/.test(h)) return NaN;
+  const dv = new DataView(new ArrayBuffer(4));
+  dv.setUint32(0, parseInt(h, 16));
+  return dv.getFloat32(0);
+}
+
+function unitInfo(code, tempUnit) {
+  if (code === 16) return tempUnit === 1 ? ["°F", "°F", 1] : ["°C", "°C", 1];
+  return UNITS[code] || ["?" + code, "", 1];
+}
+
+const isInt = s => /^-?\d+$/.test(s);
+const isHex = (s, n) => new RegExp("^[0-9a-fA-F]{" + n + "}$").test(s);
+
+/* returns an object or null for malformed lines */
+function parseLine(line) {
+  line = line.replace(/\r$/, "");
+  const f = line.split(",");
+  switch (f[0]) {
+  case "R": {
+    if (f.length < 12) return null;
+    const ints = [1, 2, 3, 4, 5, 6, 9];
+    if (!ints.every(i => isInt(f[i])) || !isHex(f[7], 8) || !isHex(f[8], 8)) return null;
+    if (!/^([0-9a-fA-F]{2})*$/.test(f[11])) return null;
+    return {
+      type: "R", ms: +f[1], mode: +f[2], unit: +f[3], acdc: +f[4], hold: +f[5],
+      numeric: +f[6], value: hexToFloat(f[7]), bar: hexToFloat(f[8]), barFlag: +f[9],
+      text: f[10], raw: f[11].toLowerCase(),
+      view: isInt(f[12] ?? "") ? +f[12] : 0,
+      rel: isHex(f[13] ?? "", 8) ? hexToFloat(f[13]) : 0,
+    };
+  }
+  case "S": {
+    if (f.length < 17 || !f.slice(1).every(isInt)) return null;
+    const n = f.slice(1).map(Number);
+    const k = ["ms", "mode", "view", "menu", "chargeBoot", "charging", "flashlight", "battery",
+      "language", "tempUnit", "autooff", "brightness", "theme", "hold", "keepawake", "stream", "beep", "usb"];
+    const o = { type: "S" };
+    k.forEach((name, i) => { o[name] = n[i]; });
+    return o;
+  }
+  case "I":
+    if (f.length < 6 || f[1] !== "DMC100-USB" || !isInt(f[2]) || !isHex(f[4], 8) || !isInt(f[5])) return null;
+    return { type: "I", proto: +f[2], stock: f[3], gotgctl: f[4], resets: +f[5],
+      gccfg: f[6], sessionEnds: f[7], dmmCmds: f[8] };
+  case "OK":
+  case "ER":
+    if (f.length !== 2) return null;
+    return { type: f[0], cmd: f[1] };
+  }
+  return null;
+}
+
+/* AC/DC flag of the main channel (labels of the power view): 2 DC, 1 AC */
+const acdcName = a => a === 2 ? "DC" : a === 1 ? "AC" : "";
+
+/* Power view (view 2): main digits = voltage, 22-bit field = clamp current in A
+ * (bar_flag 0 DC, 1 AC; the meter adds its DC zero offset "rel" to DC current). */
+function powerReading(r, tempUnit) {
+  if (r.view !== 2) return null;
+  const u = unitInfo(r.unit, tempUnit);
+  const v = r.numeric && isFinite(r.value) ? r.value * (u[1] === "V" ? u[2] : 1) : NaN;
+  const a = isFinite(r.bar) ? r.bar + (r.barFlag === 0 && isFinite(r.rel) ? r.rel : 0) : NaN;
+  return { v, a, w: Math.abs(v * a), vAC: r.acdc === 1, aAC: r.barFlag === 1 };
+}
+
+/* reading -> SI value or NaN (OL / invalid) */
+function siValue(r, tempUnit) {
+  if (!r.numeric || !isFinite(r.value)) return NaN;
+  return r.value * unitInfo(r.unit, tempUnit)[2];
+}
+
+const PREFIX = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"], [1e-12, "p"]];
+function fmtSI(v, base, digits = 4) {
+  if (!isFinite(v)) return "–";
+  if (base === "°C" || base === "°F" || base === "") return (+v.toPrecision(digits)) + (base ? " " + base : "");
+  const a = Math.abs(v);
+  let p = PREFIX[3];
+  if (a !== 0) for (const q of PREFIX) { if (a >= q[0] * 0.9995) { p = q; break; } p = q; }
+  return (+(v / p[0]).toPrecision(digits)) + " " + p[1] + base;
+}
+
+/* line splitter for a stream of text chunks; keeps the partial tail */
+function makeSplitter(onLine) {
+  let buf = "";
+  return chunk => {
+    buf += chunk;
+    let i;
+    while ((i = buf.search(/[\r\n]/)) >= 0) {
+      const line = buf.slice(0, i);
+      buf = buf.slice(i + 1);
+      if (line.length) onLine(line);
+    }
+    if (buf.length > 4096) buf = "";  /* garbage without newlines */
+  };
+}
+
+function csvEscape(s) {
+  s = String(s);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+const CSV_HEADER = "host_time,device_ms,mode,mode_name,unit,text,value,si_value,si_unit,hold,acdc,view,volts,amps,watts,raw\n";
+function csvRow(s) {
+  return [s.t, s.ms, s.mode, MODES[s.mode] ?? "", s.unit, s.text, s.value, s.si, s.siUnit,
+    s.hold, acdcName(s.acdc), s.view, s.volts ?? "", s.amps ?? "", s.watts ?? "", s.raw]
+    .map(csvEscape).join(",") + "\n";
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { hexToFloat, parseLine, siValue, unitInfo, fmtSI, makeSplitter, csvRow, MODES, KEYS, powerReading, acdcName };
+}
+
+/* ===================== UI ===================== */
+if (typeof document !== "undefined") (function () {
+  const $ = id => document.getElementById(id);
+  const state = {
+    port: null, reader: null, writer: null, closing: false,
+    tempUnit: 0, lastMode: null, status: null, info: null,
+    points: [],            /* {t (host ms), v (SI)} */
+    paused: false,
+    stats: { min: Infinity, max: -Infinity, sum: 0, n: 0 },
+    recording: false, rec: [], fileWriter: null,
+    siUnit: "",
+  };
+  const MAX_POINTS = 200000;
+
+  /* ---------- console ---------- */
+  const consoleEl = $("console");
+  function log(text, cls) {
+    const d = document.createElement("div");
+    if (cls) d.className = cls;
+    d.textContent = text;
+    const stick = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 4;
+    consoleEl.appendChild(d);
+    while (consoleEl.childNodes.length > 300) consoleEl.removeChild(consoleEl.firstChild);
+    if (stick) consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  /* ---------- serial ---------- */
+  const supported = "serial" in navigator;
+  if (!supported) {
+    $("unsupported").style.display = "block";
+    $("btn-connect").disabled = true;
+  }
+
+  function setConnected(on) {
+    $("conn-state").textContent = on ? "connected" : "disconnected";
+    $("conn-state").className = on ? "on" : "";
+    $("btn-connect").textContent = on ? "Disconnect" : "Connect";
+    document.querySelectorAll("[data-needs-port]").forEach(b => { b.disabled = !on; });
+  }
+
+  async function send(cmd) {
+    if (!state.writer) { log("not connected", "err"); return; }
+    log("> " + cmd, "tx");
+    try { await state.writer.write(cmd + "\n"); } catch (e) { log("write failed: " + e.message, "err"); }
+  }
+
+  async function open(port) {
+    if (state.port) return;
+    try {
+      await port.open({ baudRate: 115200 });
+    } catch (e) {
+      log("open failed: " + e.message, "err");
+      return;
+    }
+    state.port = port;
+    state.closing = false;
+    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); } catch (e) { /* optional */ }
+    const enc = new TextEncoderStream();
+    enc.readable.pipeTo(port.writable).catch(() => {});
+    state.writer = enc.writable.getWriter();
+    setConnected(true);
+    log("port opened", "sys");
+    readLoop(port);
+    send("I");
+    send("S");
+    send("A" + ($("chk-awake").checked ? 1 : 0));
+    send("P" + ($("chk-stream").checked ? 1 : 0));
+  }
+
+  async function readLoop(port) {
+    const split = makeSplitter(onLine);
+    while (port.readable && !state.closing) {
+      const dec = new TextDecoderStream();
+      const done = port.readable.pipeTo(dec.writable).catch(() => {});
+      state.reader = dec.readable.getReader();
+      try {
+        for (;;) {
+          const { value, done: end } = await state.reader.read();
+          if (end) break;
+          split(value);
+        }
+      } catch (e) {
+        if (!state.closing) log("read error: " + e.message, "err");
+      } finally {
+        state.reader.releaseLock();
+      }
+      await done;
+      if (!state.closing) break;  /* device gone (e.g. re-enumerated) */
+    }
+    await close(true);
+  }
+
+  async function close(lost) {
+    if (!state.port) return;
+    const port = state.port;
+    state.closing = true;
+    try { if (state.reader) await state.reader.cancel(); } catch (e) {}
+    try { if (state.writer) { await state.writer.close(); } } catch (e) {}
+    try { await port.close(); } catch (e) {}
+    state.port = state.reader = state.writer = null;
+    setConnected(false);
+    log(lost ? "port closed (device lost?)" : "port closed", "sys");
+  }
+
+  $("btn-connect").onclick = async () => {
+    if (state.port) { await close(false); return; }
+    try {
+      const port = await navigator.serial.requestPort({ filters: [] });
+      await open(port);
+    } catch (e) {
+      if (e.name !== "NotFoundError") log("connect failed: " + e.message, "err");
+    }
+  };
+
+  if (supported) {
+    navigator.serial.addEventListener("connect", ev => {
+      log("device attached, reconnecting", "sys");
+      setTimeout(() => open(ev.target), 300);
+    });
+    navigator.serial.addEventListener("disconnect", () => log("device detached", "sys"));
+    /* reopen a previously granted port of the meter on page load */
+    navigator.serial.getPorts().then(ports => {
+      const p = ports.find(x => (x.getInfo().usbVendorId === 0x2E3C)) || (ports.length === 1 ? ports[0] : null);
+      if (p) open(p);
+    });
+  }
+
+  /* ---------- incoming lines ---------- */
+  function onLine(line) {
+    const m = parseLine(line);
+    if (!m) { log(line, "err"); return; }
+    if (m.type !== "R" && m.type !== "S") log(line);
+    else if (consoleVerbose) log(line);
+    if (m.type === "R") onReading(m);
+    else if (m.type === "S") onStatus(m);
+    else if (m.type === "I") { state.info = m; renderStatus(); }
+  }
+  let consoleVerbose = false;
+
+  function onReading(r) {
+    const pw = powerReading(r, state.tempUnit);
+    const u = pw ? ["W", "W", 1] : unitInfo(r.unit, state.tempUnit);
+    const si = pw ? pw.w : siValue(r, state.tempUnit);
+    $("disp").textContent = r.numeric ? r.text || "" : (r.text && !/\d/.test(r.text) ? r.text : "OL");
+    $("unit").textContent = u[0];
+    $("b-mode").textContent = MODES[r.mode] ?? ("mode " + r.mode);
+    $("b-hold").hidden = !r.hold;
+    $("b-acdc").textContent = acdcName(r.acdc);
+    $("b-acdc").hidden = !acdcName(r.acdc);
+    $("power").hidden = !pw;
+    if (pw) {
+      $("b-mode").textContent = "Power";
+      $("disp").textContent = isFinite(pw.w) ? fmtSI(pw.w, "W", 4).replace(/ \S*W$/, "") : "OL";
+      $("unit").textContent = isFinite(pw.w) ? fmtSI(pw.w, "W", 4).split(" ")[1] : "W";
+      $("p-v").textContent = fmtSI(pw.v, "V", 4);
+      $("p-a").textContent = fmtSI(pw.a, "A", 4);
+      $("p-w").textContent = fmtSI(pw.w, "W", 4);
+      $("p-vac").textContent = pw.vAC ? "AC" : "DC";
+      $("p-aac").textContent = pw.aAC ? "AC" : "DC";
+      $("b-acdc").hidden = true;
+    }
+    $("si").textContent = !pw && isFinite(si) ? "= " + fmtSI(si, u[1], 5) : "";
+
+    const modeKey = pw ? "power" : r.mode;
+    if (state.lastMode !== null && (modeKey !== state.lastMode || u[1] !== state.siUnit)) {
+      resetStats();
+      state.points = [];
+    }
+    state.lastMode = modeKey;
+    state.siUnit = u[1];
+    if (state.power !== !!pw) { state.power = !!pw; $("chart-wrap").classList.toggle("power", state.power); }
+
+    const now = Date.now();
+    if (isFinite(si)) {
+      if (!state.paused) {
+        state.points.push(pw ? { t: now, v: si, pv: pw.v, pa: pw.a } : { t: now, v: si });
+        if (state.points.length > MAX_POINTS) state.points.splice(0, state.points.length - MAX_POINTS);
+      }
+      const s = state.stats;
+      s.min = Math.min(s.min, si); s.max = Math.max(s.max, si); s.sum += si; s.n++;
+      renderStats();
+    }
+    if (state.recording) {
+      const sample = {
+        t: new Date(now).toISOString(), ms: r.ms, mode: r.mode, unit: u[0], text: r.text,
+        value: r.numeric && isFinite(r.value) ? r.value : "", si: isFinite(si) ? si : "",
+        siUnit: u[1], hold: r.hold, acdc: r.acdc, view: r.view, raw: r.raw,
+        volts: pw && isFinite(pw.v) ? pw.v : "", amps: pw && isFinite(pw.a) ? pw.a : "",
+        watts: pw && isFinite(pw.w) ? pw.w : "",
+      };
+      state.rec.push(sample);
+      if (state.fileWriter) state.fileWriter.write(csvRow(sample)).catch(e => log("file write: " + e.message, "err"));
+      $("rec-info").textContent = state.rec.length + " samples" + (state.fileWriter ? " (writing to file)" : "");
+    }
+    dirty = true;
+  }
+
+  function onStatus(s) {
+    state.status = s;
+    state.tempUnit = s.tempUnit;
+    $("chk-awake").checked = !!s.keepawake;
+    $("chk-stream").checked = !!s.stream;
+    if (s.beep !== undefined) $("chk-beep").checked = !!s.beep;
+    if (document.activeElement !== $("sel-mode") && s.mode < MODES.length) $("sel-mode").value = s.mode;
+    renderStatus();
+  }
+
+  function renderStatus() {
+    const s = state.status, i = state.info;
+    const rows = [];
+    if (s) {
+      rows.push(["function", MODES[s.mode] ?? s.mode], ["view", s.view],
+        ["screen", s.menu ? "menu" : s.chargeBoot ? "charge screen" : "measurement"],
+        ["battery", s.battery], ["charging", s.charging ? "yes" : "no"],
+        ["flashlight", s.flashlight ? "on" : "off"], ["language", s.language ? "English" : "Chinese"],
+        ["temp unit", s.tempUnit ? "°F" : "°C"], ["auto-off", s.autooff ? "setting " + s.autooff : "off"],
+        ["brightness", s.brightness + " / 9"], ["theme", s.theme], ["hold", s.hold ? "yes" : "no"],
+        ["beep", s.beep === undefined ? "?" : s.beep ? "on" : "off"],
+        ...(s.usb === undefined ? [] : [["USB", [s.usb & 1 ? "configured" : "not configured",
+          s.usb & 2 ? "suspended" : "", s.usb & 8 ? "port open" : ""]
+          .filter(Boolean).join(", ")]]),
+        ["uptime", (s.ms / 1000).toFixed(1) + " s"]);
+    }
+    if (i) {
+      rows.push(["protocol", i.proto], ["stock fw", i.stock], ["GOTGCTL", "0x" + i.gotgctl], ["USB resets", i.resets]);
+      if (i.dmmCmds !== undefined) rows.push(["session drops", i.sessionEnds], ["DMM commands", i.dmmCmds]);
+    }
+    const dl = $("status");
+    dl.textContent = "";
+    if (!rows.length) { dl.textContent = "no status yet"; return; }
+    for (const [k, v] of rows) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v;
+      dl.append(dt, dd);
+    }
+  }
+
+  /* ---------- stats ---------- */
+  function resetStats() { state.stats = { min: Infinity, max: -Infinity, sum: 0, n: 0 }; renderStats(); }
+  function renderStats() {
+    const s = state.stats, b = state.siUnit;
+    $("st-min").textContent = s.n ? fmtSI(s.min, b) : "–";
+    $("st-max").textContent = s.n ? fmtSI(s.max, b) : "–";
+    $("st-avg").textContent = s.n ? fmtSI(s.sum / s.n, b) : "–";
+    $("st-n").textContent = s.n;
+  }
+  $("btn-reset-stats").onclick = resetStats;
+
+  /* ---------- chart ---------- */
+  const canvas = $("chart");
+  let dirty = true;
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function niceStep(range, ticks) {
+    const raw = range / ticks, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+  }
+  /* one plot lane: grid, y labels, the curve of p[key]; time labels only when timeAxis */
+  function drawLane(g, box, vis, key, unit, color, tStart, tEnd, label, timeAxis) {
+    const { L, T, pw, ph } = box;
+    const x = t => L + (t - tStart) / Math.max(1, tEnd - tStart) * pw;
+    let lo = Infinity, hi = -Infinity;
+    for (const p of vis) { const v = p[key]; if (isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+    g.strokeStyle = css("--grid"); g.lineWidth = 1; g.fillStyle = css("--muted");
+    if (lo === Infinity) {
+      g.textAlign = "left"; g.textBaseline = "top";
+      g.fillText((label ? label + ": " : "") + "no data", L + 8, T + 4);
+      return;
+    }
+    if (lo === hi) { const d = Math.abs(lo) * 0.05 || 1e-3; lo -= d; hi += d; }
+    const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const step = niceStep(hi - lo, Math.max(2, Math.floor(ph / 40)));
+    const y = v => T + (hi - v) / (hi - lo) * ph;
+    g.textAlign = "right"; g.textBaseline = "middle";
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const yy = Math.round(y(v)) + 0.5;
+      g.beginPath(); g.moveTo(L, yy); g.lineTo(L + pw, yy); g.stroke();
+      g.fillText(fmtSI(Math.abs(v) < step * 1e-6 ? 0 : v, unit, 3), L - 6, yy);
+    }
+    g.textAlign = "center"; g.textBaseline = "top";
+    const span = (tEnd - tStart) / 1000;
+    const tstep = niceStep(span, Math.max(2, Math.floor(pw / 90))) * 1000;
+    for (let t = Math.ceil(tStart / tstep) * tstep; t <= tEnd; t += tstep) {
+      const xx = Math.round(x(t)) + 0.5;
+      g.beginPath(); g.moveTo(xx, T); g.lineTo(xx, T + ph); g.stroke();
+      if (timeAxis) g.fillText(new Date(t).toLocaleTimeString([], { hour12: false }), xx, T + ph + 6);
+    }
+    g.strokeStyle = color; g.lineWidth = 1.6; g.lineJoin = "round";
+    g.beginPath();
+    /* decimate to ~2 points per pixel column (min/max) for long windows; gaps on invalid values */
+    const perPx = vis.length / pw;
+    let pen = false;
+    if (perPx > 2) {
+      let col = -1, mn = 0, mx = 0;
+      for (const p of vis) {
+        const v = p[key];
+        if (!isFinite(v)) continue;
+        const c = Math.floor(x(p.t));
+        if (c !== col) {
+          if (col >= 0) { g.lineTo(col, y(mn)); g.lineTo(col, y(mx)); }
+          col = c; mn = mx = v;
+          if (!pen) { g.moveTo(c, y(v)); pen = true; }
+        } else { if (v < mn) mn = v; if (v > mx) mx = v; }
+      }
+      if (col >= 0) { g.lineTo(col, y(mn)); g.lineTo(col, y(mx)); }
+    } else {
+      for (const p of vis) {
+        const v = p[key];
+        if (!isFinite(v)) { pen = false; continue; }
+        if (pen) g.lineTo(x(p.t), y(v)); else { g.moveTo(x(p.t), y(v)); pen = true; }
+      }
+    }
+    g.stroke();
+    if (vis.length < 200) {
+      g.fillStyle = color;
+      for (const p of vis) if (isFinite(p[key])) { g.beginPath(); g.arc(x(p.t), y(p[key]), 2, 0, 7); g.fill(); }
+    }
+    if (label) {
+      const last = [...vis].reverse().find(p => isFinite(p[key]));
+      const text = label + (last ? "  " + fmtSI(last[key], unit, 4) : "");
+      g.font = "600 12px system-ui, sans-serif";
+      g.textAlign = "left"; g.textBaseline = "top";
+      const tw = g.measureText(text).width;
+      g.fillStyle = css("--panel"); g.globalAlpha = 0.85; g.fillRect(L + 4, T + 3, tw + 8, 17); g.globalAlpha = 1;
+      g.fillStyle = color; g.fillText(text, L + 8, T + 5);
+      g.font = "11px system-ui, sans-serif";
+    }
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    }
+    const g = canvas.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const L = 70, R = 10, T = 10, B = 24, pw = w - L - R, ph = h - T - B;
+    g.font = "11px system-ui, sans-serif";
+    g.fillStyle = css("--muted");
+    const win = +$("sel-window").value * 1000;
+    const pts = state.points;
+    const tEnd = state.paused && pts.length ? pts[pts.length - 1].t : Date.now();
+    const tStart = win ? tEnd - win : (pts.length ? pts[0].t : tEnd - 60000);
+    let i0 = 0;
+    if (win) { let lo = 0, hi = pts.length; while (lo < hi) { const m = (lo + hi) >> 1; if (pts[m].t < tStart) lo = m + 1; else hi = m; } i0 = lo; }
+    const vis = pts.slice(i0);
+    if (!vis.length) {
+      g.textAlign = "left"; g.textBaseline = "alphabetic";
+      g.fillText("waiting for readings…", L + 8, T + 16);
+      return;
+    }
+    if (!state.power) {
+      drawLane(g, { L, T, pw, ph }, vis, "v", state.siUnit, css("--plot"), tStart, tEnd, "", true);
+      return;
+    }
+    /* power view: three stacked lanes with their own scales, shared time axis */
+    const gap = 14, lh = (ph - 2 * gap) / 3;
+    const lanes = [["pv", "V", "--plot-v", "Voltage"], ["pa", "A", "--plot-a", "Current"], ["v", "W", "--plot-w", "Power"]];
+    lanes.forEach(([key, unit, col, label], k) =>
+      drawLane(g, { L, T: T + k * (lh + gap), pw, ph: lh }, vis, key, unit, css(col), tStart, tEnd, label, k === 2));
+  }
+  function frame() {
+    if (dirty || !state.paused) { draw(); dirty = false; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.addEventListener("resize", () => { dirty = true; });
+  $("sel-window").onchange = () => { dirty = true; };
+  $("btn-pause").onclick = () => {
+    state.paused = !state.paused;
+    $("btn-pause").textContent = state.paused ? "Resume" : "Pause";
+    $("btn-pause").classList.toggle("on", state.paused);
+    dirty = true;
+  };
+  $("btn-clear-chart").onclick = () => { state.points = []; dirty = true; };
+
+  /* ---------- recording ---------- */
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  function setRec(on) {
+    state.recording = on;
+    $("btn-rec").textContent = on ? "Stop recording" : "Start recording";
+    $("btn-rec").classList.toggle("on", on);
+  }
+  $("btn-rec").onclick = async () => {
+    if (state.recording) {
+      setRec(false);
+      if (state.fileWriter) { await state.fileWriter.close(); state.fileWriter = null; log("log file closed", "sys"); }
+      $("rec-info").textContent = state.rec.length + " samples";
+    } else setRec(true);
+  };
+  if (!("showSaveFilePicker" in window)) $("btn-file").hidden = true;
+  $("btn-file").onclick = async () => {
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: "dmc100-" + stamp() + ".csv",
+        types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }] });
+      state.fileWriter = await h.createWritable();
+      await state.fileWriter.write(CSV_HEADER_UI);
+      setRec(true);
+      log("recording to " + h.name, "sys");
+    } catch (e) { if (e.name !== "AbortError") log("file: " + e.message, "err"); }
+  };
+  const CSV_HEADER_UI = CSV_HEADER;
+  $("btn-csv").onclick = () => download("dmc100-" + stamp() + ".csv", CSV_HEADER_UI + state.rec.map(csvRow).join(""), "text/csv");
+  $("btn-json").onclick = () => download("dmc100-" + stamp() + ".json", JSON.stringify(state.rec, null, 1), "application/json");
+  $("btn-rec-clear").onclick = () => {
+    if (state.rec.length && !confirm("Discard " + state.rec.length + " recorded samples?")) return;
+    state.rec = []; $("rec-info").textContent = "0 samples";
+  };
+
+  /* ---------- controls ---------- */
+  const keysEl = $("keys");
+  for (const [name, short, long] of KEYS) {
+    const k = document.createElement("div");
+    k.className = "key";
+    k.innerHTML = '<div class="name"></div><div class="btns"><button data-needs-port>short</button><button data-needs-port>long</button></div>';
+    k.querySelector(".name").textContent = name;
+    const [bs, bl] = k.querySelectorAll("button");
+    bs.title = name + " short press (K" + short + ")";
+    bl.title = name + " long press (K" + long + ")";
+    bs.onclick = () => send("K" + short);
+    bl.onclick = () => {
+      if (name === "POWER" && !confirm("Long-press POWER switches the meter off. Continue?")) return;
+      send("K" + long);
+    };
+    keysEl.appendChild(k);
+  }
+  MODES.forEach((m, i) => { const o = document.createElement("option"); o.value = i; o.textContent = i + ": " + m; $("sel-mode").appendChild(o); });
+  $("btn-mode").setAttribute("data-needs-port", "");
+  $("btn-mode").onclick = () => send("M" + $("sel-mode").value);
+  $("btn-power").onclick = () => send("K10");
+  $("chk-awake").onchange = e => send("A" + (e.target.checked ? 1 : 0));
+  $("chk-stream").onchange = e => send("P" + (e.target.checked ? 1 : 0));
+  $("chk-beep").onchange = e => send("B" + (e.target.checked ? 1 : 0));
+  $("cmd-form").onsubmit = e => {
+    e.preventDefault();
+    const v = $("cmd").value.trim();
+    if (v === "/verbose") { consoleVerbose = !consoleVerbose; log("verbose " + consoleVerbose, "sys"); }
+    else if (v) send(v);
+    $("cmd").value = "";
+  };
+  setConnected(false);
+  renderStatus();
+  log("Type /verbose in the command box to also show R and S lines here.", "sys");
+})();
+</script>
+</body>
+</html>

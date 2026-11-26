@@ -1,27 +1,67 @@
-# DMC-100 Firmware V1.4 — Modification Guide
+# FNIRSI DMC-100 firmware V1.4: reverse engineering and USB mod
 
-## Files
+> [!CAUTION]
+> **A USB isolator between the meter and the computer is required. Do not connect the meter
+> to a computer without one.**
+>
+> The meter's measurement inputs (the COM and V/Ω jacks) are not isolated from the USB
+> port. Without isolation, a USB cable connects whatever you are measuring to your
+> computer's ground. If you measure mains voltage, or anything not referenced to the same
+> earth as the PC, that can **destroy the computer and the meter, start a fire, or give you a
+> lethal electric shock** through the computer chassis, the cable shield or anything else
+> connected to the PC.
+>
+> - Use a USB isolator rated for the voltages involved (for example an ADuM3160 / ADuM4160
+>   based "USB isolator", full speed, 1.5 kV or more). Plug it in between the PC and the
+>   meter, every time.
+> - A battery-powered laptop **is not** a substitute: its chassis, other cables and you
+>   are still part of the circuit.
+> - The stock firmware refuses to measure while the meter is on USB power ("Do not use while
+>   charging") for exactly this reason. **This mod removes that protection.** The meter now
+>   measures while connected to any USB port or charger.
+> - Measuring current with the clamp jaws alone is isolated by the clamp itself, but the test
+>   leads are not. Unplug the test leads if you are not using the isolator.
+>
+> You use this mod at your own risk.
 
-| File | Description |
-|------|-------------|
-| `dmc100_decompiled_clean.c` | **Main working file** — 364 functions, compiles with 0 errors |
-| `dmc100_decompiled.c` | Raw Ghidra output — source for regenerating the clean file, do not edit |
-| `dmc100_strings.txt` | 523 extracted strings with flash addresses — useful for finding functions |
-| `dmc100_disasm.asm` | Raw disassembly — reference when you need exact byte positions |
-| `../APP_DMC-100_V1.4_250524.bin` | Original firmware — **keep this untouched as your baseline** |
+**USB connectivity mod and browser app: see [USB_MOD.md](USB_MOD.md).**
 
----
+**License:** the USB mod (`usbpatch/`, `web/`, `tools/`, the scripts in `analysis/` and the
+mod's documentation) is MIT licensed, see [LICENSE](LICENSE). It does not cover the FNIRSI
+firmware, the decompiled or disassembled firmware in this repository, or the files from the
+upstream repository; those remain under their respective owners' rights.
 
-## Firmware details
+| Path | Contents |
+|------|----------|
+| `USB_MOD.md` | the USB mod: building, flashing, protocol, how it works |
+| `usbpatch/` | patch sources (CDC-ACM driver, glue, settings page) and `build.py` |
+| `web/index.html` | browser viewer/logger/remote (WebSerial); `node web/test_protocol.js` tests it |
+| `firmware/` | `APP_DMC-100_V1.4U_USB.bin`: the patched firmware to flash; `APP_DMC-100_V1.4_250524.bin`: stock V1.4 (to go back, and the build input) |
+| `analysis/` | Ghidra decompile **at the correct base 0x08007000**, call graph, Ghidra scripts |
+| `tools/rebuild_bin.py` | recreates the stock image from `dmc100_disasm.asm` (byte-identical) |
+| `dmc100_decompiled*.c`, `dmc100_disasm.asm`, `dmc100_strings.txt`, `function_renames.txt` | the original analysis, see the warning below |
+
+> **Warning about the original analysis files.** They were produced with the image loaded at
+> 0x08000000, but the app is linked at **0x08007000** (a 28 KB bootloader sits below it; the
+> vector table, the Keil scatter-load table and every literal pool agree). Code bytes are
+> right, but every address in `dmc100_decompiled*.c`, `function_renames.txt` and
+> `dmc100_strings.txt` is 0x7000 too low, pointers into flash resolve to the wrong place, and
+> several names in `function_renames.txt` are wrong. Use `analysis/` instead. The guide below
+> is kept for reference; its "recompile the decompiled C" route does not produce a working
+> image, the USB mod patches the stock binary instead.
+
+## Firmware details (corrected)
 
 | Property | Value |
 |----------|-------|
-| Architecture | ARM Cortex-M4F (Thumb-2, little-endian, hardware FPU) |
-| Flash base | `0x08000000` |
-| Flash size | 95 984 bytes (93 KB) |
-| RAM base | `0x20000000` |
+| MCU | Artery AT32F415 (Cortex-M4, Thumb-2, **no FPU**), 128 KB flash (1 KB pages), 32 KB RAM |
+| Clock | 8 MHz crystal, PLL 144 MHz |
+| App base | `0x08007000` (bootloader `0x08000000..0x08006FFF`) |
+| App size | 95 984 bytes, ends `0x0801E6F0` |
+| Settings page | `0x0801F400` (1 KB, written at power-off) |
 | Initial stack pointer | `0x20007240` |
-| Reset handler | `0x0800721C` |
+| Reset handler | `0x0800721C`, `main` at `0x080106E4` |
+| Measuring chip | separate, USART1 115200 Bd, 13-byte frames `5A A5 ...` |
 
 ---
 
