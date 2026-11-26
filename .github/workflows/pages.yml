@@ -1,0 +1,44 @@
+# Publishes the browser viewer (web/index.html) to GitHub Pages:
+# https://sl0perator.github.io/dmc100-USB-MOD/
+# One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+name: Deploy viewer to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test the viewer's protocol code
+        run: node web/test_protocol.js
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp web/index.html _site/index.html
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

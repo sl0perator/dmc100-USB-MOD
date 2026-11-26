@@ -79,7 +79,8 @@ the same way.
 ## Using it
 
 Linux: the meter appears as `2e3c:5740` "FNIRSI DMC-100 Clamp Meter", `/dev/ttyACM0`.
-Open `web/index.html` in Chrome or Edge and click **Connect**, or use any terminal
+Open the viewer at **<https://sl0perator.github.io/dmc100-USB-MOD/>** (or `web/index.html`
+from a checkout, it works offline) in Chrome or Edge and click **Connect**, or use any terminal
 (`picocom /dev/ttyACM0`). The baud rate is ignored.
 
 ## Custom boot logo (stock feature)
