@@ -25,7 +25,10 @@
 > You use this mod at your own risk.
 
 **USB connectivity mod and browser app: see [USB_MOD.md](USB_MOD.md).**
+
 **Viewer online: <https://sl0perator.github.io/dmc100-USB-MOD/>** (Chrome/Edge, through a USB isolator).
+
+**Based on** [cakenes/dmc100](https://github.com/cakenes/dmc100), the decompilation of the V1.4 firmware this repository is forked from: its disassembly listing (`dmc100_disasm.asm`) recreates the stock image byte for byte (`tools/rebuild_bin.py`, also the fallback of `build.py`), and its string dump and function survey were the starting map for the reverse engineering. The original guide is kept below. Hardware notes from [DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom) helped too.
 
 **License:** the USB mod (`usbpatch/`, `web/`, `tools/`, the scripts in `analysis/` and the
 mod's documentation) is MIT licensed, see [LICENSE](LICENSE). It does not cover the FNIRSI

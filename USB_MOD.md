@@ -185,6 +185,11 @@ address used.
 
 ## Credits
 
+[cakenes/dmc100](https://github.com/cakenes/dmc100), the decompilation this repository is
+forked from: its disassembly listing (`dmc100_disasm.asm`) recreates the stock image byte for
+byte (`tools/rebuild_bin.py`, also the fallback of `build.py`), and its string dump and
+function survey were the starting map for the reverse engineering.
+
 [DMC100-Doom](https://github.com/ArturBieniek4/DMC100-Doom) by Artur Bieniek documented
 several hardware facts this mod relies on (USB divider, PA9 session sensing, button pins,
 flash layout, update procedure). No code was copied from it.
